@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>漢語拼音 学習・リスニングテストシステム</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @media print {
+      body * { visibility: hidden; }
+      #print-area, #print-area * { visibility: visible; }
+      #print-area { position: absolute; left: 0; top: 0; width: 100%; }
+    }
+    .custom-modal-backdrop {
+      background-color: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(4px);
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen p-3 sm:p-6 pb-24">
+
+  <div class="max-w-4xl mx-auto">
+    <!-- ヘッダー -->
+    <header class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm mb-6 text-center">
+      <span class="bg-indigo-100 text-indigo-700 text-xs font-semibold px-3 py-1 rounded-full uppercase tracking-wide">
+        正規漢語拼音 学習システム
+      </span>
+      <h1 class="text-2xl sm:text-3xl font-bold text-slate-900 mt-2">漢語拼音 学習＆リスニングテスト</h1>
+      <p class="text-slate-500 text-sm mt-1">標準漢語拼音（Pinyin）の音声合成を採用。個人情報の入力不要ですぐに自主テストが受けられます。</p>
+    </header>
+
+    <!-- タブ切り替えボタン -->
+    <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-4">
+      <button onclick="switchTab('consonants', this)" id="btn-consonants" class="tab-btn bg-indigo-600 text-white font-bold py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm shadow transition">
+        声母 (子音)
+      </button>
+      <button onclick="switchTab('vowels', this)" id="btn-vowels" class="tab-btn bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm shadow-sm transition">
+        韻母 (母音)
+      </button>
+      <button onclick="switchTab('quiz', this)" id="btn-quiz" class="tab-btn bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm shadow-sm transition">
+        📝 ピンイン小テスト
+      </button>
+    </div>
+
+    <!-- 音声ステータスバー -->
+    <div id="voiceStatus" class="bg-indigo-50 text-indigo-700 border border-indigo-200 text-center py-2 px-4 rounded-xl mb-4 text-xs font-semibold">
+      音声エンジンを読み込み中...
+    </div>
+
+    <!-- タブ 1：声母 (子音) -->
+    <div id="tab-consonants" class="tab-content space-y-6">
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 border-l-4 border-indigo-600 pl-3 mb-1">無気音（息を強く出さない音）</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3" id="grid-unaspirated"></div>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 border-l-4 border-rose-600 pl-3 mb-1">有気音（強い息を吐き出す音）</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3" id="grid-aspirated"></div>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 border-l-4 border-emerald-600 pl-3 mb-1">その他の声母（鼻音・摩擦音・流音）</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3" id="grid-others"></div>
+      </div>
+    </div>
+
+    <!-- タブ 2：韻母 (母音) -->
+    <div id="tab-vowels" class="tab-content space-y-6 hidden">
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 border-l-4 border-indigo-600 pl-3 mb-1">単韻母（基本母音）</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3" id="grid-vowels-1"></div>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 border-l-4 border-indigo-600 pl-3 mb-1">複韻母（二重・三重母音）</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-3" id="grid-vowels-2"></div>
+      </div>
+
+      <div class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h3 class="text-base font-bold text-slate-900 border-l-4 border-indigo-600 pl-3 mb-1">鼻韻母（前鼻音・後鼻音）</h3>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-3" id="grid-vowels-3"></div>
+      </div>
+    </div>
+
+    <!-- タブ 3：自主リスニングテスト -->
+    <div id="tab-quiz" class="tab-content space-y-6 hidden">
+      
+      <!-- テスト設定カード -->
+      <div id="quiz-setup-card" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm">
+        <h2 class="text-lg font-bold text-slate-900 mb-2 flex items-center gap-2">
+          <span>🎯</span> リスニングテスト設定
+        </h2>
+        <p class="text-xs text-slate-500 mb-5">個人情報の入力は不要です。問題数と出題範囲を選んですぐに開始できます。</p>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">出題数</label>
+            <select id="quizCount" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="10">10 問 (クイック確認)</option>
+              <option value="20" selected>20 問 (標準テスト)</option>
+              <option value="30">30 問 (総合テスト)</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">出題範囲</label>
+            <select id="quizScope" class="w-full bg-slate-50 border border-slate-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="all">総合テスト（声母＋韻母）</option>
+              <option value="consonants">声母のみ（子音）</option>
+              <option value="vowels">韻母のみ（母音）</option>
+            </select>
+          </div>
+        </div>
+
+        <button onclick="startQuiz()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 px-6 rounded-xl transition shadow text-sm">
+          🚀 リスニングテスト開始
+        </button>
+      </div>
+
+      <!-- テスト解答エリア -->
+      <div id="quiz-play-card" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hidden">
+        <div class="flex justify-between items-center pb-4 border-b border-slate-100 mb-5">
+          <div class="text-xs font-bold text-slate-500">
+            第 <span id="current-q-index" class="text-indigo-600 text-base">1</span> / <span id="total-q-count">10</span> 問
+          </div>
+          <div class="text-xs font-semibold px-2.5 py-1 bg-indigo-50 text-indigo-700 rounded-lg">
+            自主テスト実施中
+          </div>
+        </div>
+
+        <div class="text-center py-6">
+          <p class="text-sm font-semibold text-slate-600 mb-3">音声を聴いて、正しい漢語拼音（ピンイン）を選んでください：</p>
+          <button onclick="playCurrentQuestionAudio()" class="inline-flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg transition active:scale-95 text-base">
+            <span>🔊</span>
+            <span>音声を再生 (繰り返し再生可)</span>
+          </button>
+        </div>
+
+        <!-- 4択ボタン -->
+        <div class="grid grid-cols-2 gap-4 mt-6 max-w-lg mx-auto" id="quiz-options-container"></div>
+      </div>
+
+      <!-- 成績表カード -->
+      <div id="quiz-result-card" class="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm hidden">
+        
+        <!-- 撮影エリア枠 (画像のデザインに合わせた点線カード) -->
+        <div id="print-area" class="border-2 border-dashed border-rose-300 bg-rose-50/20 rounded-2xl p-4 sm:p-6 relative">
+          
+          <!-- 上部ヘッダー & 撮影エリアタグ -->
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-4 border-b border-rose-200/60 mb-4">
+            <div>
+              <span class="text-[10px] sm:text-xs font-bold bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-full uppercase tracking-wide">
+                正規漢語拼音 学習システム
+              </span>
+              <h2 class="text-lg sm:text-xl font-bold text-slate-900 mt-1">漢語拼音 リスニングテスト成績表</h2>
+            </div>
+            <div class="flex items-center gap-2 self-end sm:self-auto">
+              <span class="text-xs text-slate-400 font-mono" id="res-timestamp">実施日時：-</span>
+              <span class="inline-flex items-center gap-1 bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm">
+                <span>📷</span> 撮影エリア
+              </span>
+            </div>
+          </div>
+
+          <!-- お名前・回数入力行 -->
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4 bg-white p-3.5 rounded-xl border border-slate-200 shadow-xs">
+            <div class="flex items-center gap-2">
+              <label class="text-xs font-bold text-slate-700 whitespace-nowrap">お名前:</label>
+              <input type="text" id="userNameInput" placeholder="お名前を入力" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500" value="学習者">
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-700 whitespace-nowrap">受験回数:</span>
+              <select id="userTryCount" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-1.5 text-sm font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="第 1 回目 (※自主練習)">第 1 回目 (※自主練習)</option>
+                <option value="第 2 回目 (※自主練習)" selected>第 2 回目 (※自主練習)</option>
+                <option value="第 3 回目 (※自主練習)">第 3 回目 (※自主練習)</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 正解数・得点サマリーバー -->
+          <div class="bg-white border border-slate-200 rounded-xl p-4 mb-4 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+            <div class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>正解:</span>
+              <span class="text-emerald-600 text-base font-extrabold" id="res-correct-fraction">19 / 24 問</span>
+              <span class="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md" id="res-wrong-count">(5 問不正解)</span>
+            </div>
+            <div class="text-sm font-bold text-slate-800 flex items-center gap-2">
+              <span>得点:</span>
+              <span class="text-2xl font-black text-rose-600" id="res-score-number">79</span>
+              <span class="text-xs text-slate-500">点</span>
+            </div>
+          </div>
+
+          <!-- 間違えた問題（復習対象）グリッド -->
+          <div class="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
+            <div class="flex items-center justify-between mb-3">
+              <span class="text-xs font-bold text-rose-600 flex items-center gap-1.5">
+                <span class="w-4 h-4 rounded-full bg-rose-600 text-white inline-flex items-center justify-center text-[10px]">✕</span>
+                間違えた問題（復習対象）
+              </span>
+              <span class="text-[11px] text-slate-400 font-medium">※ピンインと音声音素表示</span>
+            </div>
+
+            <!-- 間違えた問題カードが並ぶグリッド -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5" id="res-wrong-cards-container">
+              <!-- 動的生成 -->
+            </div>
+          </div>
+
+          <!-- 改ざん防止検証コード（ひっそり配置） -->
+          <div class="mt-3 text-[10px] text-slate-400 text-right font-mono" id="res-verify-code">
+            検証番号：-
+          </div>
+        </div>
+
+        <!-- アクションボタン -->
+        <div class="mt-6 pt-5 border-t border-slate-200 flex flex-col sm:flex-row gap-3">
+          <button onclick="copyTeacherReport()" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 px-4 rounded-xl text-sm transition shadow flex items-center justify-center gap-2">
+            <span>📋</span> 成績レポートをコピー (先生提出用)
+          </button>
+          <button onclick="window.print()" class="bg-slate-800 hover:bg-slate-900 text-white font-bold py-3.5 px-5 rounded-xl text-sm transition shadow">
+            🖨️ 印刷 / PDF保存
+          </button>
+          <button onclick="resetQuiz()" class="bg-rose-600 hover:bg-rose-700 text-white font-bold py-3.5 px-5 rounded-xl text-sm transition shadow">
+            🔄 もう一度テストを受ける (練習用)
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- カスタムモーダル (alert置換用) -->
+  <div id="customModal" class="fixed inset-0 z-50 flex items-center justify-center custom-modal-backdrop hidden">
+    <div class="bg-white rounded-2xl p-6 max-w-sm w-full mx-4 shadow-xl border border-slate-200 text-center">
+      <div id="modalIcon" class="text-3xl mb-2">💡</div>
+      <h3 id="modalTitle" class="text-base font-bold text-slate-900 mb-1">お知らせ</h3>
+      <p id="modalMessage" class="text-xs text-slate-600 mb-5 whitespace-pre-line leading-relaxed"></p>
+      <button onclick="closeModal()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-4 rounded-xl text-sm transition shadow">
+        OK
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // 声母データ（完全維持・日本語解説）
+    const consonantData = {
+      'b':  { sound: 'bō', tip: '両唇・無気音' },
+      'd':  { sound: 'dē', tip: '舌尖・無気音' },
+      'g':  { sound: 'gē', tip: '舌根・無気音' },
+      'j':  { sound: 'jī', tip: '舌面・無気音' },
+      'z':  { sound: 'zī', tip: '平舌・無気音' },
+      'zh': { sound: 'zhī', tip: 'そり舌・無気音' },
+
+      'p':  { sound: 'pō', tip: '両唇・強い息' },
+      't':  { sound: 'tē', tip: '舌尖・強い息' },
+      'k':  { sound: 'kē', tip: '舌根・強い息' },
+      'q':  { sound: 'qī', tip: '舌面・強い息' },
+      'c':  { sound: 'cī', tip: '平舌・強い息' },
+      'ch': { sound: 'chī', tip: 'そり舌・強い息' },
+
+      'm':  { sound: 'mō', tip: '両唇鼻音' },
+      'n':  { sound: 'nē', tip: '舌尖鼻音' },
+      'l':  { sound: 'lē', tip: '流音' },
+      'f':  { sound: 'fō', tip: '唇歯摩擦' },
+      'h':  { sound: 'hē', tip: '喉摩擦' },
+      'x':  { sound: 'xī', tip: '舌面摩擦' },
+      's':  { sound: 'sī', tip: '平舌摩擦' },
+      'sh': { sound: 'shī', tip: 'そり舌摩擦' },
+      'r':  { sound: 'rī', tip: 'そり舌有声' }
+    };
+
+    // 韻母データ（完全維持・日本語解説）
+    const vowelData = {
+      'a':   { sound: 'ā', tip: '単韻母' },
+      'o':   { sound: 'ō', tip: '単韻母' },
+      'e':   { sound: 'ē', tip: '単韻母' },
+      'i':   { sound: 'yī', tip: '単韻母' },
+      'u':   { sound: 'wū', tip: '単韻母' },
+      'ü':   { sound: 'yū', tip: '単韻母' },
+
+      'ai':  { sound: 'āi', tip: '複韻母' },
+      'ei':  { sound: 'ēi', tip: '複韻母' },
+      'ao':  { sound: 'āo', tip: '複韻母' },
+      'ou':  { sound: 'ōu', tip: '複韻母' },
+      'ia':  { sound: 'yā', tip: '複韻母' },
+      'ie':  { sound: 'yē', tip: '複韻母' },
+      'ua':  { sound: 'wā', tip: '複韻母' },
+      'uo':  { sound: 'wō', tip: '複韻母' },
+      'üe':  { sound: 'yuē', tip: '複韻母' },
+      'iao': { sound: 'yāo', tip: '複韻母' },
+      'iu':  { sound: 'yōu', tip: '複韻母' },
+      'uai': { sound: 'wāi', tip: '複韻母' },
+      'ui':  { sound: 'wēi', tip: '複韻母' },
+      'er':  { sound: 'ér', tip: '巻舌韻母' },
+
+      'an':  { sound: 'ān', tip: '前鼻音' },
+      'ang': { sound: 'āng', tip: '後鼻音' },
+      'en':  { sound: 'ēn', tip: '前鼻音' },
+      'eng': { sound: 'ēng', tip: '後鼻音' },
+      'in':  { sound: 'yīn', tip: '前鼻音' },
+      'ing': { sound: 'yīng', tip: '後鼻音' },
+      'un':  { sound: 'wēn', tip: '前鼻音' },
+      'ong': { sound: 'wōng', tip: '後鼻音' }
+    };
+
+    const unaspiratedKeys = ['b', 'd', 'g', 'j', 'z', 'zh'];
+    const aspiratedKeys = ['p', 't', 'k', 'q', 'c', 'ch'];
+    const otherKeys = ['m', 'n', 'l', 'f', 'h', 'x', 's', 'sh', 'r'];
+    const vowels1Keys = ['a', 'o', 'e', 'i', 'u', 'ü'];
+    const vowels2Keys = ['ai', 'ei', 'ao', 'ou', 'ia', 'ie', 'ua', 'uo', 'üe', 'iao', 'iu', 'uai', 'ui', 'er'];
+    const vowels3Keys = ['an', 'ang', 'en', 'eng', 'in', 'ing', 'un', 'ong'];
+
+    let pinyinVoice = null;
+
+    // 音声合成の誤読防止用音素マッピング
+    const ttsAudioFix = {
+      'ēn': '恩',
+      'āng': '骯',
+      'ē': '婀',
+      'ēng': '鞥'
+    };
+
+    function showModal(message, title = "お知らせ", icon = "💡") {
+      document.getElementById('modalTitle').innerText = title;
+      document.getElementById('modalMessage').innerText = message;
+      document.getElementById('modalIcon').innerText = icon;
+      document.getElementById('customModal').classList.remove('hidden');
+    }
+
+    function closeModal() {
+      document.getElementById('customModal').classList.add('hidden');
+    }
+
+    function initVoices() {
+      if (!('speechSynthesis' in window)) {
+        document.getElementById('voiceStatus').innerText = '⚠️ お使いのブラウザは音声合成に対応していません';
+        return;
+      }
+      const voices = window.speechSynthesis.getVoices();
+      if (!voices.length) return;
+
+      pinyinVoice = 
+        voices.find(v => v.lang === 'zh-CN' && (v.name.includes('Xiaoxiao') || v.name.includes('Yunxi') || v.name.includes('Natural'))) ||
+        voices.find(v => v.lang === 'zh-CN') ||
+        voices.find(v => v.lang.startsWith('zh'));
+
+      const statusEl = document.getElementById('voiceStatus');
+      if (pinyinVoice) {
+        statusEl.innerText = `✅ 中国語音声エンジン準備完了：${pinyinVoice.name} (${pinyinVoice.lang})`;
+      } else {
+        statusEl.innerText = '⚠️ システム標準の音声エンジンを使用します';
+      }
+    }
+
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.onvoiceschanged = initVoices;
+    }
+
+    function renderAll() {
+      document.getElementById('grid-unaspirated').innerHTML = unaspiratedKeys.map(k => createCard(k, consonantData[k])).join('');
+      document.getElementById('grid-aspirated').innerHTML = aspiratedKeys.map(k => createCard(k, consonantData[k])).join('');
+      document.getElementById('grid-others').innerHTML = otherKeys.map(k => createCard(k, consonantData[k])).join('');
+
+      document.getElementById('grid-vowels-1').innerHTML = vowels1Keys.map(k => createCard(k, vowelData[k])).join('');
+      document.getElementById('grid-vowels-2').innerHTML = vowels2Keys.map(k => createCard(k, vowelData[k])).join('');
+      document.getElementById('grid-vowels-3').innerHTML = vowels3Keys.map(k => createCard(k, vowelData[k])).join('');
+    }
+
+    function createCard(key, item) {
+      return `
+        <div class="bg-indigo-50/40 border border-indigo-100 rounded-2xl p-4 flex flex-col justify-between shadow-sm">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-2xl font-extrabold text-indigo-700">${key}</span>
+              <span class="ml-1.5 text-sm font-semibold text-slate-400">(${item.sound})</span>
+            </div>
+            <span class="text-[11px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-md font-medium">${item.tip}</span>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-indigo-100 flex items-center justify-between">
+            <span class="text-xs text-slate-500 font-mono">Pinyin: ${item.sound}</span>
+            <button onclick="speakPinyin('${item.sound}')" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm">
+              ▶ 聴く
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    function speakPinyin(text) {
+      if (!('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+
+      const speakText = ttsAudioFix[text] || text;
+
+      const utterance = new SpeechSynthesisUtterance(speakText);
+      utterance.lang = 'zh-CN';
+      if (pinyinVoice) utterance.voice = pinyinVoice;
+      utterance.rate = 0.85;
+      utterance.pitch = 1.0;
+
+      if (window.speechSynthesis.paused) {
+        window.speechSynthesis.resume();
+      }
+      window.speechSynthesis.speak(utterance);
+    }
+
+    function switchTab(tabId, btnEl) {
+      document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.className = 'tab-btn bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 font-bold py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm shadow-sm transition';
+      });
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      btnEl.className = 'tab-btn active-tab bg-indigo-600 text-white font-bold py-3 px-2 sm:px-4 rounded-xl text-xs sm:text-sm shadow transition';
+    }
+
+    /* -------------------------------------------------------------
+       自主リスニングテスト ロジック
+    ------------------------------------------------------------- */
+    let quizQuestions = [];
+    let currentQIndex = 0;
+    let quizConfig = { scope: 'all', count: 20 };
+    let quizAnswers = [];
+
+    function startQuiz() {
+      const count = parseInt(document.getElementById('quizCount').value, 10);
+      const scope = document.getElementById('quizScope').value;
+
+      quizConfig = { scope, count };
+
+      let pool = [];
+      if (scope === 'all' || scope === 'consonants') {
+        Object.keys(consonantData).forEach(k => pool.push({ key: k, sound: consonantData[k].sound, type: 'consonant' }));
+      }
+      if (scope === 'all' || scope === 'vowels') {
+        Object.keys(vowelData).forEach(k => pool.push({ key: k, sound: vowelData[k].sound, type: 'vowel' }));
+      }
+
+      pool.sort(() => Math.random() - 0.5);
+      const selectedQuestions = pool.slice(0, Math.min(count, pool.length));
+
+      quizQuestions = selectedQuestions.map(target => {
+        let sameTypePool = pool.filter(p => p.type === target.type && p.key !== target.key);
+        sameTypePool.sort(() => Math.random() - 0.5);
+        let distractors = sameTypePool.slice(0, 3).map(p => p.key);
+        
+        let options = [target.key, ...distractors];
+        options.sort(() => Math.random() - 0.5);
+
+        return {
+          targetKey: target.key,
+          targetSound: target.sound,
+          options: options
+        };
+      });
+
+      currentQIndex = 0;
+      quizAnswers = [];
+
+      document.getElementById('quiz-setup-card').classList.add('hidden');
+      document.getElementById('quiz-result-card').classList.add('hidden');
+      document.getElementById('quiz-play-card').classList.remove('hidden');
+
+      document.getElementById('total-q-count').innerText = quizQuestions.length;
+      renderCurrentQuestion();
+    }
+
+    function renderCurrentQuestion() {
+      const q = quizQuestions[currentQIndex];
+      document.getElementById('current-q-index').innerText = currentQIndex + 1;
+
+      const container = document.getElementById('quiz-options-container');
+      container.innerHTML = q.options.map(opt => `
+        <button onclick="submitAnswer('${opt}')" class="bg-slate-50 hover:bg-indigo-50 border-2 border-slate-200 hover:border-indigo-400 text-slate-800 hover:text-indigo-700 font-extrabold text-xl py-4 px-4 rounded-xl transition shadow-sm active:scale-95">
+          ${opt}
+        </button>
+      `).join('');
+
+      setTimeout(() => {
+        playCurrentQuestionAudio();
+      }, 200);
+    }
+
+    function playCurrentQuestionAudio() {
+      const q = quizQuestions[currentQIndex];
+      if (q) {
+        speakPinyin(q.targetSound);
+      }
+    }
+
+    function submitAnswer(chosenKey) {
+      const q = quizQuestions[currentQIndex];
+      const isCorrect = (chosenKey === q.targetKey);
+
+      quizAnswers.push({
+        questionNo: currentQIndex + 1,
+        targetKey: q.targetKey,
+        targetSound: q.targetSound,
+        chosenKey: chosenKey,
+        isCorrect: isCorrect
+      });
+
+      currentQIndex++;
+      if (currentQIndex < quizQuestions.length) {
+        renderCurrentQuestion();
+      } else {
+        finishQuiz();
+      }
+    }
+
+    function finishQuiz() {
+      document.getElementById('quiz-play-card').classList.add('hidden');
+      document.getElementById('quiz-result-card').classList.remove('hidden');
+
+      const correctCount = quizAnswers.filter(a => a.isCorrect).length;
+      const totalCount = quizAnswers.length;
+      const wrongCount = totalCount - correctCount;
+      const score = Math.round((correctCount / totalCount) * 100);
+      const nowStr = new Date().toLocaleString('ja-JP', { hour12: false });
+
+      document.getElementById('res-timestamp').innerText = `実施日時：${nowStr}`;
+      document.getElementById('res-correct-fraction').innerText = `${correctCount} / ${totalCount} 問`;
+      document.getElementById('res-wrong-count').innerText = `(${wrongCount} 問不正解)`;
+      document.getElementById('res-score-number').innerText = score;
+
+      const verifyCode = `PIN-${score}-${Date.now().toString().slice(-6)}`;
+      document.getElementById('res-verify-code').innerText = `検証番号：${verifyCode} (先生への提出・確認用)`;
+
+      // 間違えた問題カードの生成（参考画像のレイアウトに対応）
+      const wrongContainer = document.getElementById('res-wrong-cards-container');
+      const wrongItems = quizAnswers.filter(a => !a.isCorrect);
+
+      if (wrongItems.length === 0) {
+        wrongContainer.innerHTML = `
+          <div class="col-span-2 text-center py-4 text-emerald-600 font-bold text-xs bg-emerald-50 rounded-lg border border-emerald-200">
+            🎉 全問正解です！間違えた問題はありません。
+          </div>
+        `;
+      } else {
+        wrongContainer.innerHTML = wrongItems.map(ans => `
+          <div onclick="speakPinyin('${ans.targetSound}')" class="bg-rose-50/50 hover:bg-rose-100/60 border border-rose-200 rounded-xl p-3 flex items-center justify-between cursor-pointer transition shadow-2xs">
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-extrabold text-rose-700 bg-rose-100 px-2 py-1 rounded-md">Q${ans.questionNo}</span>
+              <span class="text-base font-bold text-slate-800">${ans.targetKey}</span>
+            </div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs text-slate-500 font-medium">(${ans.targetSound})</span>
+              <span class="text-xs text-rose-600">🔊</span>
+            </div>
+          </div>
+        `).join('');
+      }
+    }
+
+    function resetQuiz() {
+      document.getElementById('quiz-result-card').classList.add('hidden');
+      document.getElementById('quiz-setup-card').classList.remove('hidden');
+    }
+
+    function copyTeacherReport() {
+      const correctCount = quizAnswers.filter(a => a.isCorrect).length;
+      const totalCount = quizAnswers.length;
+      const score = Math.round((correctCount / totalCount) * 100);
+      const nowStr = new Date().toLocaleString('ja-JP', { hour12: false });
+      const verifyCode = document.getElementById('res-verify-code').innerText;
+      const userName = document.getElementById('userNameInput').value || '学習者';
+      const tryCountStr = document.getElementById('userTryCount').value;
+
+      let wrongSummary = quizAnswers
+        .filter(a => !a.isCorrect)
+        .map(a => `• 第 ${a.questionNo} 問：回答 [${a.chosenKey}]，正解 [${a.targetKey}] (音声：${a.targetSound})`)
+        .join('\n');
+
+      if (!wrongSummary) wrongSummary = 'なし (全問正解！素晴らしい成果です)';
+
+      const reportText = `【漢語拼音 リスニングテスト成績表】
+お名前：${userName} (${tryCountStr})
+得点：${score} 点 (正解 ${correctCount} / ${totalCount} 問)
+実施日時：${nowStr}
+${verifyCode}
+
+--- 間違えた問題（復習用） ---
+${wrongSummary}
+---------------------------------
+※ 本レポートはシステムにより自動生成されました。`;
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(reportText).then(() => {
+          showModal("✅ 成績レポートをクリップボードにコピーしました！\nLINEやGoogle Classroomなどに貼り付けて先生に提出できます。", "コピー成功", "📋");
+        }).catch(() => {
+          fallbackCopyText(reportText);
+        });
+      } else {
+        fallbackCopyText(reportText);
+      }
+    }
+
+    function fallbackCopyText(text) {
+      const textArea = document.createElement("textarea");
+      textArea.value = text;
+      textArea.style.position = "fixed";
+      textArea.style.opacity = "0";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        const successful = document.execCommand('copy');
+        if (successful) {
+          showModal("✅ 成績レポートをクリップボードにコピーしました！", "コピー成功", "📋");
+        } else {
+          showModal("コピーに失敗しました。手動でテキストを選択してください。", "コピー失敗", "⚠️");
+        }
+      } catch (err) {
+        showModal("コピー機能がブロックされました。", "コピーエラー", "⚠️");
+      }
+      document.body.removeChild(textArea);
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      renderAll();
+      initVoices();
+    });
+  </script>
+
+</body>
+</html>
